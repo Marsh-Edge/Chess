@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ChessBoard } from './board'
+import { PlayerBar } from './player-bar'
 import { ChessGame } from '@/lib/chess/game'
 import { Color, GameStatus, SquareIndex } from '@/lib/chess/types'
-import { Lightbulb, RotateCcw, Trophy, Undo2 } from 'lucide-react'
+import { Lightbulb, RotateCcw, Trophy, Undo2, ChevronRight, AlertTriangle } from 'lucide-react'
 
 interface EndgamePosition {
   name: string
@@ -72,7 +73,7 @@ const ENDGAME_POSITIONS: EndgamePosition[] = [
     strategy: [
       'The opposition means your king faces the enemy king with one square between them — the player who does NOT have to move has the advantage.',
       'If it is your opponent\'s turn when kings are opposed, you have the opposition — they must move sideways or back, letting you advance.',
-      'Use the opposition to force your king past the enemy king and into a better position.',
+      'Use the opposition to force your king past the enemy king into a better position.',
       'Once your king penetrates, support a passed pawn or attack enemy pawns from a stronger position.',
     ],
     commonMistake: 'Losing the opposition by moving your king in the wrong direction. Always consider which king move maintains or gains the opposition.',
@@ -89,8 +90,17 @@ export function EndgameTrainer() {
   const [showHint, setShowHint] = useState(false)
   const [moveCount, setMoveCount] = useState(0)
   const [isSolved, setIsSolved] = useState(false)
+  const [completedPositions, setCompletedPositions] = useState<Set<number>>(new Set())
 
   const state = game.getState()
+  const isPlayerTurn = state.activeColor === Color.White
+  const moveHistory = state.moveNotation
+
+  const getActiveStepIndex = (): number => {
+    if (moveCount === 0) return 0
+    const movesPerStep = Math.ceil(position.strategy.length / 4)
+    return Math.min(Math.floor(moveCount / Math.max(movesPerStep, 1)), position.strategy.length - 1)
+  }
 
   const loadPosition = (index: number) => {
     const pos = ENDGAME_POSITIONS[index]
@@ -123,8 +133,9 @@ export function EndgameTrainer() {
         if (result.status === GameStatus.Checkmate) {
           setMessage('Checkmate! Well done!')
           setIsSolved(true)
+          setCompletedPositions(prev => new Set(prev).add(selectedIndex))
         } else if (result.status === GameStatus.Stalemate) {
-          setMessage(`Stalemate. ${position.commonMistake}`)
+          setMessage(`Stalemate! ${position.commonMistake}`)
         } else {
           setMessage('')
         }
@@ -149,10 +160,65 @@ export function EndgameTrainer() {
     }
   }
 
+  const activeStep = getActiveStepIndex()
+
   return (
     <div className="w-full">
+      {/* Progress indicator */}
+      <div className="flex items-center justify-center gap-2 mb-6">
+        {ENDGAME_POSITIONS.map((pos, i) => (
+          <button
+            key={i}
+            onClick={() => loadPosition(i)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+              selectedIndex === i
+                ? 'bg-foreground text-background shadow-md'
+                : completedPositions.has(i)
+                  ? 'bg-green-500/15 text-green-700 dark:text-green-400 border border-green-500/30'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            {completedPositions.has(i) && <Trophy className="size-3" />}
+            {i + 1}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-col lg:flex-row gap-6 items-start justify-center">
+        {/* Board section */}
         <div className="flex flex-col items-center w-full lg:max-w-[720px] shrink-0">
+          {/* Turn indicator */}
+          <div className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg mb-3 text-sm font-medium ${
+            isSolved
+              ? 'bg-green-500/10 text-green-700 dark:text-green-400'
+              : isPlayerTurn
+                ? 'bg-primary/10 text-primary'
+                : 'bg-muted text-muted-foreground'
+          }`}>
+            {isSolved ? (
+              <>
+                <Trophy className="size-4" />
+                <span>Puzzle Complete!</span>
+              </>
+            ) : isPlayerTurn ? (
+              <>
+                <div className="w-2.5 h-2.5 rounded-full bg-white border border-black/20" />
+                <span>Your turn — find the best move</span>
+              </>
+            ) : (
+              <span className="animate-pulse">Waiting for opponent...</span>
+            )}
+          </div>
+
+          <div className="w-full">
+            <PlayerBar
+              name="Opponent"
+              time={0}
+              isActive={!isPlayerTurn && !isSolved}
+              color={Color.Black}
+            />
+          </div>
+
           <div className="w-full max-w-[500px] lg:max-w-none">
             <ChessBoard
               board={state.board}
@@ -167,6 +233,17 @@ export function EndgameTrainer() {
               onSquareClick={handleSquareClick}
             />
           </div>
+
+          <div className="w-full">
+            <PlayerBar
+              name="You (White)"
+              time={0}
+              isActive={isPlayerTurn && !isSolved}
+              color={Color.White}
+            />
+          </div>
+
+          {/* Controls */}
           <div className="flex items-center gap-2 mt-3">
             <Button variant="outline" size="sm" onClick={undoMove} disabled={state.moves.length === 0}>
               <Undo2 className="size-3.5 mr-1" /> Undo
@@ -184,12 +261,22 @@ export function EndgameTrainer() {
               {showHint ? 'Hide Hint' : 'Show Hint'}
             </Button>
           </div>
-          {moveCount > 0 && (
-            <p className="text-xs text-muted-foreground mt-2">{moveCount} {moveCount === 1 ? 'move' : 'moves'} played</p>
+
+          {/* Move history */}
+          {moveHistory.length > 0 && (
+            <div className="w-full mt-3 flex flex-wrap gap-1 justify-center">
+              {moveHistory.map((move, i) => (
+                <span key={i} className="font-mono text-xs px-1.5 py-0.5 rounded bg-muted/50 text-muted-foreground">
+                  {Math.floor(i / 2) + 1}{i % 2 === 0 ? '.' : '...'}{move}
+                </span>
+              ))}
+            </div>
           )}
         </div>
 
+        {/* Info panel */}
         <div className="w-full lg:w-80 space-y-4 shrink-0">
+          {/* Position selector */}
           <Card>
             <CardContent className="p-4 space-y-3">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Choose a position</p>
@@ -197,39 +284,65 @@ export function EndgameTrainer() {
                 {ENDGAME_POSITIONS.map((pos, i) => (
                   <button
                     key={i}
-                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors cursor-pointer ${
+                    className={`w-full text-left px-3 py-2 rounded text-sm transition-colors cursor-pointer flex items-center gap-2 ${
                       selectedIndex === i
                         ? 'bg-foreground text-background font-medium'
                         : 'hover:bg-muted text-muted-foreground'
                     }`}
                     onClick={() => loadPosition(i)}
                   >
-                    {pos.name}
+                    {completedPositions.has(i) && <Trophy className="size-3 text-green-500 shrink-0" />}
+                    <span className="truncate">{pos.name}</span>
                   </button>
                 ))}
               </div>
             </CardContent>
           </Card>
 
+          {/* Position info */}
           <Card>
             <CardContent className="p-4 space-y-4">
               <div>
-                <h2 className="text-lg font-bold">{position.name}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold">{position.name}</h2>
+                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    {selectedIndex + 1}/{ENDGAME_POSITIONS.length}
+                  </span>
+                </div>
                 <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{position.goal}</p>
               </div>
 
+              {/* Strategy steps */}
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Strategy</p>
                 <ol className="space-y-2">
                   {position.strategy.map((step, i) => (
-                    <li key={i} className="text-sm text-muted-foreground flex items-start gap-2 leading-relaxed">
-                      <span className="font-bold text-foreground min-w-[1.2rem] shrink-0">{i + 1}.</span>
+                    <li key={i} className={`text-sm flex items-start gap-2 leading-relaxed transition-colors ${
+                      i === activeStep && !isSolved
+                        ? 'text-foreground font-medium'
+                        : i < activeStep
+                          ? 'text-green-600 dark:text-green-400'
+                          : 'text-muted-foreground'
+                    }`}>
+                      <span className={`font-bold min-w-[1.2rem] shrink-0 ${
+                        i === activeStep && !isSolved
+                          ? 'text-primary'
+                          : i < activeStep
+                            ? 'text-green-600 dark:text-green-400'
+                            : ''
+                      }`}>
+                        {i < activeStep ? '✓' : <>{i + 1}.</>}
+                      </span>
                       <span>{step}</span>
+                      {i === activeStep && !isSolved && (
+                        <ChevronRight className="size-4 text-primary shrink-0 mt-0.5 animate-pulse" />
+                      )}
                     </li>
                   ))}
                 </ol>
               </div>
 
+              {/* Hint */}
               {showHint && (
                 <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
                   <div className="flex items-start gap-2">
@@ -242,14 +355,39 @@ export function EndgameTrainer() {
                 </div>
               )}
 
+              {/* Message */}
               {message && (
-                <div className={`rounded-lg p-3 ${isSolved ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
-                  <div className="flex items-center gap-2">
-                    {isSolved ? <Trophy className="size-4 text-green-600" /> : <Undo2 className="size-4 text-red-500" />}
-                    <p className={`text-sm font-medium ${isSolved ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
-                      {message}
-                    </p>
+                <div className={`rounded-lg p-3 ${isSolved ? 'bg-green-500/10 border border-green-500/30' : 'bg-amber-500/10 border border-amber-500/30'}`}>
+                  <div className="flex items-start gap-2">
+                    {isSolved ? (
+                      <Trophy className="size-4 text-green-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <p className={`text-sm font-medium ${isSolved ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                        {message}
+                      </p>
+                      {!isSolved && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={resetPosition}
+                          className="mt-2 text-xs"
+                        >
+                          <RotateCcw className="size-3 mr-1" /> Try Again
+                        </Button>
+                      )}
+                    </div>
                   </div>
+                </div>
+              )}
+
+              {/* Stats */}
+              {moveCount > 0 && (
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>{moveCount} {moveCount === 1 ? 'move' : 'moves'} played</span>
+                  {isSolved && <span className="text-green-600 dark:text-green-400 font-medium">Solved!</span>}
                 </div>
               )}
             </CardContent>

@@ -147,7 +147,7 @@ export function useChessGame(mode?: 'pvp' | 'ai', initialPlayerColor?: Color, in
 
     const id = setTimeout(() => applyAIMove(), 150)
     return () => clearTimeout(id)
-  }, [state.moves.length, state.activeColor, state.result.status, applyAIMove, isGameOver])
+  }, [state.moves.length, state.activeColor, state.result.status, applyAIMove, isGameOver, playerColor])
 
   return useMemo(() => ({
     state,

@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, Suspense } from 'react'
 import { ChessBoard } from '@/components/chess/board'
 import { GameInfo } from '@/components/chess/game-info'
 import { MoveList } from '@/components/chess/move-list'
-import { ChessTimer } from '@/components/chess/timer'
+import { PlayerBar } from '@/components/chess/player-bar'
 import { GameControls } from '@/components/chess/game-controls'
 import { useChessGame } from '@/hooks/useChessGame'
 import { useTimer } from '@/hooks/useTimer'
@@ -38,6 +38,7 @@ function PlayContent() {
   const game = useChessGame(isAi ? 'ai' : 'pvp', Color.White, 3)
   const timer = useTimer({ initialMinutes: tc.initialMinutes, incrementSeconds: tc.incrementSeconds })
   const [promotionPending, setPromotionPending] = useState<{ from: SquareIndex; to: SquareIndex; color: Color } | null>(null)
+  const [boardFlipped, setBoardFlipped] = useState(false)
   const state = game.state
 
   useEffect(() => {
@@ -45,6 +46,13 @@ function PlayContent() {
     if (timer.isRunning) return
     timer.reset(ct.initialMinutes * 60)
   }, [timeControl, timer])
+
+  const handlePlayerColorChange = useCallback((color: Color) => {
+    game.setPlayerColor(color)
+    game.resetGame()
+    timer.reset(TIME_CONTROLS[timeControl].initialMinutes * 60)
+    setBoardFlipped(color === Color.Black)
+  }, [game, timer, timeControl])
 
   const handleSquareClick = useCallback((index: SquareIndex) => {
     if (state.result.status === GameStatus.Checkmate || state.result.status === GameStatus.Stalemate) return
@@ -116,19 +124,39 @@ function PlayContent() {
     timer.reset(TIME_CONTROLS[tc].initialMinutes * 60)
   }, [game, timer])
 
-  return (
-    <div className="flex flex-col lg:flex-row gap-4 justify-center items-start w-full">
-      {/* Timer column (left on desktop, top on mobile) */}
-      <div className="w-full lg:w-auto shrink-0">
-        <ChessTimer
-          timeWhite={timer.timeWhite}
-          timeBlack={timer.timeBlack}
-          activeColor={timer.activeColor}
-        />
-      </div>
+  const playerColor = game.playerColor
+  const opponentColor = playerColor === Color.White ? Color.Black : Color.White
+  const isPlayerTurn = state.activeColor === playerColor
+  const isOpponentTurn = state.activeColor === opponentColor
 
-      {/* Board column (fills remaining space, can shrink) */}
-      <div className="flex flex-col items-center w-full lg:flex-1 lg:min-w-0">
+  const opponentName = isAi ? 'Stockfish' : (playerColor === Color.White ? 'Player 2' : 'Player 1')
+  const playerName = isAi ? 'You' : (playerColor === Color.White ? 'Player 1' : 'Player 2')
+
+  const topColor = boardFlipped ? playerColor : opponentColor
+  const bottomColor = boardFlipped ? opponentColor : playerColor
+  const topIsTurn = boardFlipped ? isPlayerTurn : isOpponentTurn
+  const bottomIsTurn = boardFlipped ? isOpponentTurn : isPlayerTurn
+  const topTime = boardFlipped ? timer.timeWhite : timer.timeBlack
+  const bottomTime = boardFlipped ? timer.timeBlack : timer.timeWhite
+  const topName = boardFlipped ? playerName : opponentName
+  const bottomName = boardFlipped ? opponentName : playerName
+  const topIsAI = boardFlipped ? !isAi : isAi
+  const bottomIsAI = boardFlipped ? isAi : !isAi
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-6 justify-center items-start w-full">
+      {/* Board column (left) */}
+      <div className="flex flex-col items-center w-full lg:flex-1 lg:min-w-0 lg:max-w-[720px]">
+        <div className="w-full">
+          <PlayerBar
+            name={topName}
+            time={topTime}
+            isActive={topIsTurn}
+            color={topColor}
+            isAI={topIsAI}
+          />
+        </div>
+
         <div className="relative w-full flex flex-col items-center">
           {game.isAIThinking && (
             <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/15 z-10">
@@ -149,6 +177,18 @@ function PlayContent() {
             } : null}
             isInCheck={state.result.status === GameStatus.Check}
             onSquareClick={handleSquareClick}
+            flipped={boardFlipped}
+            onFlipChange={setBoardFlipped}
+          />
+        </div>
+
+        <div className="w-full">
+          <PlayerBar
+            name={bottomName}
+            time={bottomTime}
+            isActive={bottomIsTurn}
+            color={bottomColor}
+            isAI={bottomIsAI}
           />
         </div>
       </div>
@@ -165,7 +205,7 @@ function PlayContent() {
           aiLevel={game.aiLevel}
           timeControl={timeControl}
           onGameModeChange={game.setGameMode}
-          onPlayerColorChange={game.setPlayerColor}
+          onPlayerColorChange={handlePlayerColorChange}
           onAiLevelChange={game.setAiLevel}
           onTimeControlChange={handleTimeControlChange}
           isAIThinking={game.isAIThinking}

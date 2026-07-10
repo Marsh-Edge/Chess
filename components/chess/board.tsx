@@ -13,6 +13,8 @@ interface BoardProps {
   lastMove: { from: SquareIndex; to: SquareIndex } | null
   isInCheck: boolean
   onSquareClick: (index: SquareIndex) => void
+  flipped?: boolean
+  onFlipChange?: (flipped: boolean) => void
 }
 
 export function ChessBoard({
@@ -23,8 +25,20 @@ export function ChessBoard({
   lastMove,
   isInCheck,
   onSquareClick,
+  flipped: flippedProp,
+  onFlipChange,
 }: BoardProps) {
-  const [flipped, setFlipped] = useState(false)
+  const [internalFlipped, setInternalFlipped] = useState(false)
+  const flipped = flippedProp ?? internalFlipped
+
+  const toggleFlip = () => {
+    const next = !flipped
+    if (onFlipChange) {
+      onFlipChange(next)
+    } else {
+      setInternalFlipped(next)
+    }
+  }
 
   const squares: number[] = []
   for (let i = 0; i < 64; i++) {
@@ -67,7 +81,7 @@ export function ChessBoard({
       </div>
       <button
         className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        onClick={() => setFlipped(!flipped)}
+        onClick={toggleFlip}
       >
         Flip Board
       </button>
