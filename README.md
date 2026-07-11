@@ -26,6 +26,25 @@
 
 ---
 
+## Table of Contents
+
+- [About the Project](#about-the-project)
+- [Why This Project?](#why-this-project)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Commands](#commands)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [License](#license)
+- [Author](#author)
+- [Acknowledgments](#acknowledgments)
+
+---
+
 ## About the Project
 
 Chess is a full-featured chess application that runs entirely in your browser. It includes a **custom chess engine** built from scratch (no `chess.js` dependency), **Stockfish WASM** for AI play and position analysis, an **opening explorer** with 105 ECO-classified openings, and an **endgame trainer** with classic positions.
@@ -89,8 +108,11 @@ Chess/
 │   ├── layout.tsx              # Root layout with header, nav, theme provider
 │   ├── page.tsx                # Homepage with links to all sections
 │   ├── globals.css             # Global styles, Tailwind config, CSS variables
+│   ├── favicon.ico             # Favicon
 │   ├── play/
 │   │   └── page.tsx            # Play page (PvP & AI modes, timer, promotion)
+│   ├── analysis/
+│   │   └── page.tsx            # Analysis board with Stockfish evaluation
 │   ├── openings/
 │   │   └── page.tsx            # Opening explorer with ECO database
 │   └── endgames/
@@ -161,6 +183,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## Configuration
+
+No environment variables are required. The application runs entirely client-side — the Stockfish engine executes in the browser via WebAssembly and Web Workers. No API keys, backend servers, or external services are needed.
+
+---
+
 ## Usage
 
 ### Play Chess
@@ -223,10 +251,10 @@ Navigate to `/endgames` to practice classic endgame positions.
 - [x] Dark / light theme with system preference detection
 - [x] Responsive glass-morphism UI
 - [x] FEN loading and PGN generation
+- [x] Analysis board with Stockfish evaluation and FEN loading
 
 ### Upcoming
 
-- [ ] Complete the `/analysis` route page
 - [ ] PGN import and full game review
 - [ ] Move annotations and commentary
 - [ ] Online multiplayer (WebSocket-based)
@@ -291,7 +319,7 @@ SOFTWARE.
 
 - [Stockfish](https://github.com/official-stockfish/stockfish) — the strongest open-source chess engine, ported to WASM
 - [Next.js](https://nextjs.org) — the React framework powering the app
-- [shadcn/ui](https://ui.shadchadcn.com) — beautifully designed UI components
+- [shadcn/ui](https://ui.shadcn.com) — beautifully designed UI components
 - [Tailwind CSS](https://tailwindcss.com) — utility-first CSS framework
 - [Lucide](https://lucide.dev) — clean, consistent icon set
 - [Sonner](https://sonner.emilkowal.dev) — elegant toast notifications
